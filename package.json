@@ -1,0 +1,42 @@
+{
+  "name": "printer-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev:electron": "concurrently \"vite\" \"wait-on tcp:3050 && tsc -p tsconfig.electron.json && electron .\"",
+    "build:electron": "tsc -p tsconfig.electron.json && vite build && electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "lucide-vue-next": "^1.0.0",
+    "pdf-to-printer": "^5.8.0",
+    "sqlite3": "^6.0.1",
+    "vue": "^3.5.35",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.1",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^10.0.1",
+    "cross-env": "^10.1.0",
+    "electron": "^42.3.0",
+    "electron-builder": "^26.8.1",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.15",
+    "wait-on": "^9.0.10"
+  }
+}

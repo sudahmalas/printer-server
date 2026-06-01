@@ -1,0 +1,203 @@
+import { app, BrowserWindow, Tray, Menu, ipcMain } from 'electron';
+import * as path from 'path';
+import express from 'express';
+import cors from 'cors';
+import { getPrinters } from 'pdf-to-printer';
+import sqlite3 from 'sqlite3';
+import fs from 'fs';
+
+const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
+
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let db: sqlite3.Database;
+
+// --- Database Setup ---
+const dbPath = path.join(app.getPath('userData'), 'printer_mappings.sqlite');
+db = new sqlite3.Database(dbPath, (err) => {
+  if (err) console.error('Database connection error:', err);
+  else {
+    db.run(`CREATE TABLE IF NOT EXISTS mappings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL,
+      printer_name TEXT NOT NULL
+    )`);
+  }
+});
+
+// --- Express Server Setup ---
+const server = express();
+server.use(cors());
+server.use(express.json());
+
+// API: Get physical printers
+server.get('/printers', async (req, res) => {
+  try {
+    const printers = await getPrinters();
+    res.json({ success: true, data: printers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// API: Get mappings
+server.get('/mappings', (req, res) => {
+  db.all('SELECT * FROM mappings', (err, rows) => {
+    if (err) res.status(500).json({ success: false });
+    else res.json({ success: true, data: rows });
+  });
+});
+
+// API: Print Job Payload
+// Expected: { jobs: [{ url: "...", category: "..." }] }
+server.post('/print', async (req, res) => {
+  const jobs = req.body.jobs;
+  if (!jobs || !Array.isArray(jobs)) return res.status(400).json({ success: false, message: 'Invalid payload' });
+
+  try {
+    for (const job of jobs) {
+      // 1. Find mapped printer
+      const mappedPrinter = await new Promise<string>((resolve, reject) => {
+        db.get('SELECT printer_name FROM mappings WHERE category = ?', [job.category], (err, row: any) => {
+          if (err) reject(err);
+          else if (!row) reject(new Error(`No printer mapped for category: ${job.category}`));
+          else resolve(row.printer_name);
+        });
+      });
+
+      // 2. Process Print
+      console.log(`Printing job category: ${job.category} to printer: ${mappedPrinter}`);
+      await processPrintJob(job.url, mappedPrinter);
+    }
+    res.json({ success: true, message: 'Print jobs dispatched' });
+  } catch (error: any) {
+    console.error('Print error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// API: Test Connection and Print
+server.post('/test-connection', async (req, res) => {
+  try {
+    const { printer_name, test_mode } = req.body;
+    
+    if (test_mode && printer_name) {
+      console.log(`[HTTP] Test print requested for printer: ${printer_name}`);
+      const testHtmlUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(`
+        <div style="font-family: sans-serif; padding: 20px; text-align: center;">
+          <h2 style="color: #059669;">✅ Test Print Berhasil</h2>
+          <p>Koneksi antara Aplikasi Utama dan Print Service berjalan dengan baik.</p>
+          <hr/>
+          <p style="font-size: 12px; color: #666;">Waktu: ${new Date().toLocaleString()}</p>
+          <p style="font-size: 12px; color: #666;">Target: ${printer_name}</p>
+        </div>
+      `);
+      
+      await processPrintJob(testHtmlUrl, printer_name);
+      res.json({ success: true, message: 'Dokumen test print telah dikirim ke antrian printer: ' + printer_name });
+    } else {
+      res.json({ success: true, message: 'Print Service terhubung dengan baik (Ping OK).' });
+    }
+  } catch (error: any) {
+    console.error('Test print error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+async function processPrintJob(url: string, printerName: string) {
+  return new Promise<void>((resolve, reject) => {
+    let hiddenWindow: BrowserWindow | null = new BrowserWindow({
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true }
+    });
+
+    hiddenWindow.loadURL(url).then(async () => {
+      try {
+        const pdfBuffer = await hiddenWindow!.webContents.printToPDF({ preferCSSPageSize: true });
+        const tempPath = path.join(app.getPath('temp'), `print_${Date.now()}.pdf`);
+        fs.writeFileSync(tempPath, pdfBuffer);
+        
+        // Print using pdf-to-printer
+        const ptp = require('pdf-to-printer');
+        await ptp.print(tempPath, { printer: printerName });
+        
+        // Cleanup
+        fs.unlinkSync(tempPath);
+        hiddenWindow!.close();
+        hiddenWindow = null;
+        resolve();
+      } catch (err) {
+        if (hiddenWindow) hiddenWindow.close();
+        reject(err);
+      }
+    }).catch(err => {
+      if (hiddenWindow) hiddenWindow.close();
+      reject(err);
+    });
+  });
+}
+
+server.listen(18181, () => {
+  console.log('[HTTP] Print Service API running on port 18181');
+});
+
+// --- Electron App Lifecycle ---
+const iconPath = path.join(__dirname, '../public/favicon.ico');
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    title: 'ID-GROW Print Service',
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+    show: false // start hidden, let Vue render first if needed
+  });
+
+  mainWindow.setMenuBarVisibility(false);
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:3050');
+    mainWindow.show();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  mainWindow.on('close', (event) => {
+    event.preventDefault();
+    mainWindow?.hide();
+  });
+}
+
+function createTray() {
+  tray = new Tray(iconPath);
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Show Dashboard', click: () => { mainWindow?.show(); } },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { 
+        mainWindow?.destroy(); // Force close
+        app.quit(); 
+    } }
+  ]);
+  tray.setToolTip('Klinik Print Service');
+  tray.setContextMenu(contextMenu);
+  tray.on('click', () => {
+    mainWindow?.show();
+  });
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
