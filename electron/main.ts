@@ -62,14 +62,22 @@ server.post('/print', async (req, res) => {
 
   try {
     for (const job of jobs) {
-      // 1. Find mapped printer
-      const mappedPrinter = await new Promise<string>((resolve, reject) => {
-        db.get('SELECT printer_name FROM mappings WHERE category = ?', [job.category], (err, row: any) => {
-          if (err) reject(err);
-          else if (!row) reject(new Error(`No printer mapped for category: ${job.category}`));
-          else resolve(row.printer_name);
+      // 1. Use explicit printer_name or find mapped printer
+      let mappedPrinter = job.printer_name;
+      
+      if (!mappedPrinter && job.category) {
+        mappedPrinter = await new Promise<string>((resolve, reject) => {
+          db.get('SELECT printer_name FROM mappings WHERE category = ?', [job.category], (err, row: any) => {
+            if (err) reject(err);
+            else if (!row) reject(new Error(`No printer mapped for category: ${job.category}`));
+            else resolve(row.printer_name);
+          });
         });
-      });
+      }
+
+      if (!mappedPrinter) {
+        throw new Error(`Tidak ada printer yang dituju untuk dokumen ini.`);
+      }
 
       // 2. Process Print
       console.log(`Printing job category: ${job.category} to printer: ${mappedPrinter}`);
