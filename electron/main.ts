@@ -8,6 +8,12 @@ import fs from 'fs';
 
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
 
+// --- Memory Optimizations ---
+// Menonaktifkan proses GPU untuk menghemat RAM hingga 40-50 MB
+app.disableHardwareAcceleration();
+// Membatasi ukuran heap memori V8 Node.js maksimal 64MB (default bisa ratusan MB)
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=64');
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let db: sqlite3.Database;

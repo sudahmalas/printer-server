@@ -50,13 +50,24 @@
         <div class="max-w-4xl mx-auto space-y-6">
           <!-- Server Configuration Card -->
           <div class="glass-card rounded-xl overflow-hidden animate-enter mb-6">
-            <div class="px-6 py-5 border-b border-slate-100 bg-white/50">
-              <h3 class="text-lg font-semibold text-slate-800">Server Configuration</h3>
-              <p class="text-sm text-slate-500 mt-1">Pengaturan identitas stasiun cetak dan koneksi server</p>
-            </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white">
+            <div class="px-6 py-5 border-b border-slate-100 bg-white/50 flex justify-between items-center flex-wrap gap-4">
               <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama Ruangan</label>
+                <h3 class="text-lg font-semibold text-slate-800">Server Configuration</h3>
+                <p class="text-sm text-slate-500 mt-1">Pengaturan identitas stasiun cetak dan koneksi server</p>
+              </div>
+              <label class="flex items-center cursor-pointer">
+                <div class="relative">
+                  <input type="checkbox" v-model="enableOnlineMode" class="sr-only" />
+                  <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors" :class="{'bg-emerald-500': enableOnlineMode}"></div>
+                  <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform" :class="{'translate-x-4': enableOnlineMode}"></div>
+                </div>
+                <div class="ml-3 text-sm font-medium text-slate-700">Online Mode (WebSocket)</div>
+              </label>
+            </div>
+            <div class="p-6 bg-white space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nama Ruangan</label>
                 <input v-model="serviceName" type="text" placeholder="Contoh: Loket Pendaftaran" 
                        class="w-full text-sm border-slate-200 border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-slate-50/50 focus:bg-white" />
               </div>
@@ -74,6 +85,26 @@
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">IP Local PC Ini</label>
                 <input v-model="localIp" type="text" placeholder="127.0.0.1" 
                        class="w-full text-sm border-slate-200 border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-slate-50/50 focus:bg-white" />
+              </div>
+              </div>
+              
+              <!-- WebSocket config, only visible if enableOnlineMode -->
+              <div v-if="enableOnlineMode" class="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-6 animate-enter">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reverb Host</label>
+                  <input v-model="reverbHost" type="text" placeholder="Contoh: 192.168.1.10" 
+                         class="w-full text-sm border-slate-200 border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-slate-50/50 focus:bg-white" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reverb Port</label>
+                  <input v-model="reverbPort" type="text" placeholder="Contoh: 8080" 
+                         class="w-full text-sm border-slate-200 border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-slate-50/50 focus:bg-white" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reverb App Key</label>
+                  <input v-model="reverbAppKey" type="text" placeholder="Contoh: local_key" 
+                         class="w-full text-sm border-slate-200 border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-slate-50/50 focus:bg-white" />
+                </div>
               </div>
             </div>
           </div>
@@ -150,7 +181,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { Printer, Settings2, Activity, RefreshCw, Plus, Trash2, ArrowRight, Save, Loader2, Tag, ChevronDown } from 'lucide-vue-next';
+import { Printer, Settings2, Activity, RefreshCw, Plus, Trash2, ArrowRight, Save, Loader2, Tag, ChevronDown, Wifi } from 'lucide-vue-next';
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
 
 // Dalam aplikasi production, IP ini diambil otomatis melalui IPC dari main process (Node 'os' module)
 // dan mainAppUrl bisa diedit melalui form Pengaturan oleh user.
@@ -159,15 +192,86 @@ const machineName = ref(localStorage.getItem('machine_name') || 'PC-LOKET-01');
 const localIp = ref(localStorage.getItem('local_ip') || '127.0.0.1');
 const mainAppUrl = ref(localStorage.getItem('main_app_url') || 'http://localhost:8030');
 
+// Online Mode (Reverb) variables
+const enableOnlineMode = ref(localStorage.getItem('enable_online') === 'true');
+const reverbHost = ref(localStorage.getItem('reverb_host') || '127.0.0.1');
+const reverbPort = ref(localStorage.getItem('reverb_port') || '8080');
+const reverbAppKey = ref(localStorage.getItem('reverb_app_key') || 'local_key');
+const isOnlineConnected = ref(false);
+
 watch(serviceName, (val) => localStorage.setItem('service_name', val));
 watch(machineName, (val) => localStorage.setItem('machine_name', val));
 watch(localIp, (val) => localStorage.setItem('local_ip', val));
 watch(mainAppUrl, (val) => localStorage.setItem('main_app_url', val));
 
+watch(enableOnlineMode, (val) => {
+  localStorage.setItem('enable_online', val.toString());
+  if (val) connectEcho();
+  else disconnectEcho();
+});
+watch(reverbHost, (val) => localStorage.setItem('reverb_host', val));
+watch(reverbPort, (val) => localStorage.setItem('reverb_port', val));
+watch(reverbAppKey, (val) => localStorage.setItem('reverb_app_key', val));
+
+let echoInstance: any = null;
+
+const connectEcho = () => {
+  if (!enableOnlineMode.value) return;
+  
+  window.Pusher = Pusher;
+  echoInstance = new Echo({
+    broadcaster: 'reverb',
+    key: reverbAppKey.value,
+    wsHost: reverbHost.value,
+    wsPort: parseInt(reverbPort.value),
+    wssPort: parseInt(reverbPort.value),
+    forceTLS: false,
+    enabledTransports: ['ws', 'wss'],
+  });
+
+  echoInstance.connector.pusher.connection.bind('connected', () => {
+    isOnlineConnected.value = true;
+    console.log('[Echo] Connected to Reverb server!');
+  });
+  
+  echoInstance.connector.pusher.connection.bind('disconnected', () => {
+    isOnlineConnected.value = false;
+    console.log('[Echo] Disconnected from Reverb server!');
+  });
+
+  // Subscribe to this specific PC's channel
+  const channelName = `printer.${machineName.value}`;
+  echoInstance.channel(channelName)
+    .listen('PrintJobDispatched', async (e: any) => {
+      console.log('[Echo] PrintJob received:', e);
+      try {
+        // Proxy to local HTTP print server
+        await fetch('http://127.0.0.1:18181/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(e.payload)
+        });
+      } catch (err) {
+        console.error('[Echo] Failed to proxy print job to local server:', err);
+      }
+    });
+};
+
+const disconnectEcho = () => {
+  if (echoInstance) {
+    echoInstance.disconnect();
+    echoInstance = null;
+    isOnlineConnected.value = false;
+  }
+};
+
 const printers = ref<any[]>([]);
 const mappings = ref([{ category: 'Gelang Pasien', printer_name: '' }]);
 
 onMounted(async () => {
+  // Connect WebSocket if enabled
+  if (enableOnlineMode.value) connectEcho();
+
   try {
     const res = await fetch('http://127.0.0.1:18181/printers');
     const json = await res.json();

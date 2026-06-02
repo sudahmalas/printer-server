@@ -44,6 +44,11 @@ const pdf_to_printer_1 = require("pdf-to-printer");
 const sqlite3_1 = __importDefault(require("sqlite3"));
 const fs_1 = __importDefault(require("fs"));
 const isDev = !electron_1.app.isPackaged && process.env.NODE_ENV !== 'production';
+// --- Memory Optimizations ---
+// Menonaktifkan proses GPU untuk menghemat RAM hingga 40-50 MB
+electron_1.app.disableHardwareAcceleration();
+// Membatasi ukuran heap memori V8 Node.js maksimal 64MB (default bisa ratusan MB)
+electron_1.app.commandLine.appendSwitch('js-flags', '--max-old-space-size=64');
 let mainWindow = null;
 let tray = null;
 let db;
