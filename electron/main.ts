@@ -81,7 +81,7 @@ server.post('/print', async (req, res) => {
 
       // 2. Process Print
       console.log(`Printing job category: ${job.category} to printer: ${mappedPrinter}`);
-      await processPrintJob(job.url, mappedPrinter);
+      await processPrintJob(job, mappedPrinter);
     }
     res.json({ success: true, message: 'Print jobs dispatched' });
   } catch (error: any) {
@@ -107,7 +107,8 @@ server.post('/test-connection', async (req, res) => {
         </div>
       `);
       
-      await processPrintJob(testHtmlUrl, printer_name);
+      const dummyJob = { url: testHtmlUrl, lebar_mm: 0, tinggi_mm: 0 };
+      await processPrintJob(dummyJob, printer_name);
       res.json({ success: true, message: 'Dokumen test print telah dikirim ke antrian printer: ' + printer_name });
     } else {
       res.json({ success: true, message: 'Print Service terhubung dengan baik (Ping OK).' });
@@ -118,33 +119,81 @@ server.post('/test-connection', async (req, res) => {
   }
 });
 
-async function processPrintJob(url: string, printerName: string) {
+async function processPrintJob(job: any, printerName: string) {
   return new Promise<void>((resolve, reject) => {
     let hiddenWindow: BrowserWindow | null = new BrowserWindow({
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
 
-    hiddenWindow.loadURL(url).then(async () => {
+    let targetUrl = job.url;
+    let tempHtmlPath = '';
+
+    if (job.url.startsWith('data:image')) {
+      tempHtmlPath = path.join(app.getPath('temp'), `print_${Date.now()}.html`);
+      const htmlContent = `<!DOCTYPE html><html><body style="margin:0;padding:0;overflow:hidden;"><img src="${job.url}" style="width:100%;height:auto;display:block;"/></body></html>`;
+      fs.writeFileSync(tempHtmlPath, htmlContent);
+      targetUrl = 'file:///' + tempHtmlPath.replace(/\\/g, '/');
+    }
+
+    hiddenWindow.loadURL(targetUrl).then(async () => {
       try {
-        const pdfBuffer = await hiddenWindow!.webContents.printToPDF({ preferCSSPageSize: true });
-        const tempPath = path.join(app.getPath('temp'), `print_${Date.now()}.pdf`);
+        const widthMm = job.lebar_mm || 0;
+        const heightMm = job.tinggi_mm || 0;
+        
+        console.log(`[PrintJob] Received job with width: ${widthMm}mm, height: ${heightMm}mm`);
+
+        const printOptions: any = {
+          printBackground: true,
+          preferCSSPageSize: true, // Masih kita gunakan sebagai fallback
+          marginsType: 1, // No margin
+        };
+
+        // Jika dimensi dikirim, kita paksa di tingkat OS
+        if (widthMm > 0 && heightMm > 0) {
+          // Electron pageSize menggunakan Micron (1 mm = 1000 micron)
+          printOptions.pageSize = {
+            width: widthMm * 1000,
+            height: heightMm * 1000
+          };
+          // Set landscape jika lebarnya lebih besar dari tinggi
+          printOptions.landscape = widthMm > heightMm;
+        }
+
+        console.log(`[PrintJob] PDF Options:`, JSON.stringify(printOptions));
+
+        const pdfBuffer = await hiddenWindow!.webContents.printToPDF(printOptions);
+        const tempPath = path.join(app.getPath('temp'), `print_pdf_${Date.now()}.pdf`);
         fs.writeFileSync(tempPath, pdfBuffer);
         
         // Print using pdf-to-printer
         const ptp = require('pdf-to-printer');
-        await ptp.print(tempPath, { printer: printerName });
+        
+        const ptpOptions: any = { 
+          printer: printerName,
+          scale: "noscale",
+          pages: "1"
+        };
+        
+        if (widthMm > heightMm) {
+          ptpOptions.orientation = "landscape";
+        }
+
+        await ptp.print(tempPath, ptpOptions);
         
         // Cleanup
         fs.unlinkSync(tempPath);
+        if (tempHtmlPath && fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
         hiddenWindow!.close();
         hiddenWindow = null;
         resolve();
       } catch (err) {
+        if (tempHtmlPath && fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
         if (hiddenWindow) hiddenWindow.close();
         reject(err);
       }
     }).catch(err => {
+      if (tempHtmlPath && fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
       if (hiddenWindow) hiddenWindow.close();
       reject(err);
     });
