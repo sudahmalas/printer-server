@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev:electron": "concurrently \"vite\" \"wait-on tcp:3050 && tsc -p tsconfig.electron.json && electron .\"",
+    "dev:electron": "concurrently -k \"vite\" \"wait-on tcp:3050 && tsc -p tsconfig.electron.json && electron .\"",
     "build:electron": "tsc -p tsconfig.electron.json && vite build && electron-builder"
   },
   "keywords": [],

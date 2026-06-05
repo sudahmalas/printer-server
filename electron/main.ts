@@ -70,6 +70,11 @@ server.get('/network-ips', (req, res) => {
   res.json({ success: true, data: results });
 });
 
+// API: Quick Status Check
+server.get('/status', (req, res) => {
+  res.json({ success: true, status: 'running' });
+});
+
 // API: Print Job Payload
 // Expected: { jobs: [{ url: "...", category: "..." }] }
 server.post('/print', async (req, res) => {
