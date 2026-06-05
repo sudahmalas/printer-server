@@ -13,14 +13,20 @@
   "type": "commonjs",
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
+    "axios": "^1.17.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "laravel-echo": "^2.3.4",
     "lucide-vue-next": "^1.0.0",
     "pdf-to-printer": "^5.8.0",
+    "pinia": "^3.0.4",
     "pusher-js": "^8.5.0",
     "sqlite3": "^6.0.1",
+    "tailwind-merge": "^3.6.0",
     "vue": "^3.5.35",
+    "vue-router": "^5.1.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {

@@ -46,12 +46,28 @@ server.get('/printers', async (req, res) => {
   }
 });
 
+import os from 'os';
+
 // API: Get mappings
 server.get('/mappings', (req, res) => {
   db.all('SELECT * FROM mappings', (err, rows) => {
     if (err) res.status(500).json({ success: false });
     else res.json({ success: true, data: rows });
   });
+});
+
+// API: Get Network IPs
+server.get('/network-ips', (req, res) => {
+  const nets = os.networkInterfaces();
+  const results = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]!) {
+      if (net.family === 'IPv4' && !net.internal) {
+        results.push({ name, ip: net.address });
+      }
+    }
+  }
+  res.json({ success: true, data: results });
 });
 
 // API: Print Job Payload
