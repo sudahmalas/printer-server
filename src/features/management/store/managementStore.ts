@@ -163,6 +163,29 @@ export const useManagementStore = defineStore('management', () => {
     }
   }
 
+  async function unregisterFromServer() {
+    try {
+      const payload = {
+        service_name: serviceName.value,
+        mac_address: macAddress.value
+      };
+
+      const res = await axios.post(`${mainAppUrl.value}/api/print-service/unregister`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      addLog(`[System] Service berhasil dihapus dari server utama.`, 'success');
+      return { success: true, message: res.data?.message || 'Berhasil dihapus' };
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message;
+      addLog(`[System] Gagal menghapus service dari server: ${msg}`, 'error');
+      return { success: false, message: msg };
+    }
+  }
+
   return {
     serviceName,
     machineName,
@@ -183,6 +206,7 @@ export const useManagementStore = defineStore('management', () => {
     disconnectEcho,
     fetchPrinters,
     checkServerStatus,
-    syncToServer
+    syncToServer,
+    unregisterFromServer
   };
 });

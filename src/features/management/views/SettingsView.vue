@@ -66,7 +66,7 @@ const copyIp = async (ip: string) => {
 };
 
 const saveConfig = async () => {
-  // If macAddress is empty, let's try to fetch it automatically before saving
+  // ... existing saveConfig code ...
   if (!store.macAddress) {
     try {
       const res = await client.get('/network-ips');
@@ -86,6 +86,18 @@ const saveConfig = async () => {
     alert('Sukses: ' + res.message);
   } else {
     alert('Gagal: ' + res.message);
+  }
+};
+
+const unregisterConfig = async () => {
+  if (confirm('Apakah Anda yakin ingin menghapus Printer Service ini dari Server Utama? Data akan hilang dari Dashboard Klinik.')) {
+    store.addLog('[System] Menghapus service dari server...', 'info');
+    const res = await store.unregisterFromServer();
+    if (res.success) {
+      alert('Sukses: ' + res.message);
+    } else {
+      alert('Gagal: ' + res.message);
+    }
   }
 };
 
@@ -215,11 +227,16 @@ onMounted(async () => {
         </div>
       </Card>
 
-      <!-- Action Footer -->
-      <div class="mt-8 flex justify-end">
-        <Button @click="saveConfig" class="bg-slate-800 hover:bg-slate-950 text-white font-semibold px-8 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all">
-          <Save class="w-4 h-4 mr-2" />
-          Simpan Konfigurasi
+      <!-- Buttons -->
+      <div class="flex gap-4 pt-2">
+        <Button @click="saveConfig" class="flex-1 bg-gradient-to-r from-[#3db6bc] to-[#2a9d90] hover:from-[#2a9d90] hover:to-[#228b7e] text-white font-bold py-3.5 rounded-xl shadow-md shadow-[#3db6bc]/20 border-0 flex items-center justify-center gap-2 group transition-all">
+          <Save class="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span>Simpan & Daftarkan Konfigurasi</span>
+        </Button>
+
+        <Button @click="unregisterConfig" class="px-6 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 group transition-all" title="Hapus dari Server Utama">
+          <X class="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span class="hidden sm:inline">Hapus Service</span>
         </Button>
       </div>
       
