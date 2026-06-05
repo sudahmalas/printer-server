@@ -13,11 +13,14 @@ const showIpModal = ref(false);
 const availableIps = ref<string[]>([]);
 const selectedIpForUse = ref<string | null>(null);
 
+const networkDetails = ref<any[]>([]);
+
 const openIpModal = async () => {
   fetchingIp.value = true;
   try {
     const res = await client.get('/network-ips');
     if (res.data.success && res.data.data) {
+      networkDetails.value = res.data.data;
       availableIps.value = res.data.data.map((n: any) => n.ip);
       // Selalu tambahkan 127.0.0.1 sebagai opsi utama (Localhost)
       if (!availableIps.value.includes('127.0.0.1')) {
@@ -40,6 +43,13 @@ const openIpModal = async () => {
 const applyIp = () => {
   if (selectedIpForUse.value) {
     store.localIp = selectedIpForUse.value;
+    
+    // Assign MAC Address if found
+    const detail = networkDetails.value.find(n => n.ip === selectedIpForUse.value);
+    if (detail && detail.mac && detail.mac !== '00:00:00:00:00:00') {
+      store.macAddress = detail.mac;
+    }
+    
     store.addLog(`[System] Memilih IP: ${store.localIp}`, 'info');
     showIpModal.value = false;
   }
@@ -56,6 +66,20 @@ const copyIp = async (ip: string) => {
 };
 
 const saveConfig = async () => {
+  // If macAddress is empty, let's try to fetch it automatically before saving
+  if (!store.macAddress) {
+    try {
+      const res = await client.get('/network-ips');
+      if (res.data.success && res.data.data.length > 0) {
+        // Fallback to first non-local MAC if empty
+        const validMac = res.data.data.find((n: any) => n.mac && n.mac !== '00:00:00:00:00:00');
+        if (validMac) {
+          store.macAddress = validMac.mac;
+        }
+      }
+    } catch(e) {}
+  }
+
   store.addLog('[Sync] Menyimpan konfigurasi dan mendaftarkan ke server...', 'info');
   const res = await store.syncToServer();
   if (res.success) {
@@ -72,6 +96,9 @@ onMounted(async () => {
       const res = await client.get('/network-ips');
       if (res.data.success && res.data.data.length > 0) {
         store.localIp = res.data.data[0].ip;
+        if (res.data.data[0].mac && res.data.data[0].mac !== '00:00:00:00:00:00') {
+           store.macAddress = res.data.data[0].mac;
+        }
         store.addLog(`[System] IP Jaringan otomatis mendeteksi: ${store.localIp}`, 'info');
       }
     } catch (err) {

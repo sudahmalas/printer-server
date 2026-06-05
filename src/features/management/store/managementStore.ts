@@ -17,6 +17,7 @@ export const useManagementStore = defineStore('management', () => {
   const serviceName = ref(localStorage.getItem('service_name') || 'Loket Pendaftaran 1');
   const machineName = ref(localStorage.getItem('machine_name') || 'PC-LOKET-01');
   const localIp = ref(localStorage.getItem('local_ip') || '127.0.0.1');
+  const macAddress = ref(localStorage.getItem('mac_address') || '');
   const mainAppUrl = ref(localStorage.getItem('main_app_url') || 'http://localhost:8030');
 
   // Reverb WebSocket variables
@@ -36,6 +37,7 @@ export const useManagementStore = defineStore('management', () => {
   watch(serviceName, (val) => localStorage.setItem('service_name', val));
   watch(machineName, (val) => localStorage.setItem('machine_name', val));
   watch(localIp, (val) => localStorage.setItem('local_ip', val));
+  watch(macAddress, (val) => localStorage.setItem('mac_address', val));
   watch(mainAppUrl, (val) => localStorage.setItem('main_app_url', val));
   watch(enableOnlineMode, (val) => {
     localStorage.setItem('enable_online', val.toString());
@@ -136,6 +138,7 @@ export const useManagementStore = defineStore('management', () => {
         service_name: serviceName.value,
         machine_name: machineName.value,
         ip_address: localIp.value,
+        mac_address: macAddress.value,
         printers: mappings.value
           .filter(m => m.printer_name && m.printer_name.trim() !== '')
           .map(m => ({
@@ -164,6 +167,7 @@ export const useManagementStore = defineStore('management', () => {
     serviceName,
     machineName,
     localIp,
+    macAddress,
     mainAppUrl,
     enableOnlineMode,
     reverbHost,
