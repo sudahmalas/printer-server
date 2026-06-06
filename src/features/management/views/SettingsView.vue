@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useManagementStore } from '../store/managementStore';
-import { Save, Monitor, Wifi, MapPin, MonitorSmartphone, Link, Network, RadioTower, Plug, KeyRound, Search, Loader2, X, Copy } from 'lucide-vue-next';
+import { Save, Monitor, Wifi, MapPin, MonitorSmartphone, Link, Network, RadioTower, Plug, KeyRound, Search, Loader2, X, Copy, Lock } from 'lucide-vue-next';
 import Button from '../../../components/ui/Button.vue';
 import Input from '../../../components/ui/Input.vue';
 import Card from '../../../components/ui/Card.vue';
@@ -101,6 +101,15 @@ const unregisterConfig = async () => {
   }
 };
 
+const testConnection = () => {
+  if (!store.enableOnlineMode) return;
+  store.addLog('[System] Menguji ulang koneksi tunnel WebSocket...', 'info');
+  store.disconnectEcho();
+  setTimeout(() => {
+    store.connectEcho();
+  }, 500);
+};
+
 onMounted(async () => {
   // Jika IP masih default (127.0.0.1) atau kosong, otomatis ambil dari network
   if (store.localIp === '127.0.0.1' || !store.localIp) {
@@ -186,7 +195,12 @@ onMounted(async () => {
               <Wifi class="w-5 h-5 transition-colors" :class="store.enableOnlineMode ? 'text-cyan-600' : 'text-slate-400'" />
             </div>
             <div>
-              <h3 class="text-base font-bold tracking-tight transition-colors" :class="store.enableOnlineMode ? 'text-cyan-900' : 'text-slate-800'">Cloud WebSockets Tunnel</h3>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold tracking-tight transition-colors" :class="store.enableOnlineMode ? 'text-cyan-900' : 'text-slate-800'">Cloud WebSockets Tunnel</h3>
+                <span v-if="store.enableOnlineMode" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" :class="store.isOnlineConnected ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200'">
+                  {{ store.isOnlineConnected ? 'Tersambung' : 'Terputus' }}
+                </span>
+              </div>
               <p class="text-xs mt-0.5 transition-colors" :class="store.enableOnlineMode ? 'text-cyan-700/80' : 'text-slate-500'">Konfigurasi koneksi real-time untuk Online Mode</p>
             </div>
           </div>
@@ -223,6 +237,27 @@ onMounted(async () => {
                 <Input v-model="store.reverbAppKey" placeholder="Contoh: local_key" class="w-full pl-9 focus:border-cyan-500 focus:ring-cyan-500/20" />
               </div>
             </div>
+            <div class="space-y-1.5">
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Protokol (TLS)</label>
+              <div class="relative group">
+                <Lock class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors" />
+                <select v-model="store.reverbScheme" class="w-full pl-9 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all appearance-none cursor-pointer">
+                  <option value="http">HTTP (ws://)</option>
+                  <option value="https">HTTPS / TLS (wss://)</option>
+                </select>
+                <!-- Custom chevron -->
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-6 flex justify-end">
+            <Button @click="testConnection" variant="outline" class="text-xs px-4 py-1.5 border-cyan-200 text-cyan-700 hover:bg-cyan-100 font-semibold rounded-lg flex items-center gap-2 transition-colors">
+              <RadioTower class="w-3.5 h-3.5" />
+              Tes Ulang Koneksi
+            </Button>
           </div>
         </div>
       </Card>

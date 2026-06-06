@@ -25,10 +25,26 @@ export const useManagementStore = defineStore('management', () => {
   const reverbHost = ref(localStorage.getItem('reverb_host') || '127.0.0.1');
   const reverbPort = ref(localStorage.getItem('reverb_port') || '8080');
   const reverbAppKey = ref(localStorage.getItem('reverb_app_key') || 'local_key');
-  
+  const reverbScheme = ref(localStorage.getItem('reverb_scheme') || 'http');
+
   // App States
   const printers = ref<any[]>([]);
-  const mappings = ref<any[]>([{ category: 'Gelang Pasien', printer_name: '' }]);
+  
+  const defaultMappings = [{ category: 'Gelang Pasien', printer_name: '' }];
+  let initialMappings = defaultMappings;
+  try {
+    const storedMappings = localStorage.getItem('printer_mappings');
+    if (storedMappings) {
+      const parsed = JSON.parse(storedMappings);
+      if (Array.isArray(parsed)) {
+        initialMappings = parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse printer mappings from local storage', e);
+  }
+  const mappings = ref<any[]>(initialMappings);
+  
   const logs = ref<any[]>([]);
   const isOnlineConnected = ref(false);
   const isServerRunning = ref(false);
@@ -47,6 +63,10 @@ export const useManagementStore = defineStore('management', () => {
   watch(reverbHost, (val) => localStorage.setItem('reverb_host', val));
   watch(reverbPort, (val) => localStorage.setItem('reverb_port', val));
   watch(reverbAppKey, (val) => localStorage.setItem('reverb_app_key', val));
+  watch(reverbScheme, (val) => localStorage.setItem('reverb_scheme', val));
+  watch(mappings, (val) => {
+    localStorage.setItem('printer_mappings', JSON.stringify(val));
+  }, { deep: true });
 
   // Pusher / Echo instance
   let echoInstance: any = null;
@@ -70,7 +90,7 @@ export const useManagementStore = defineStore('management', () => {
         wsHost: reverbHost.value,
         wsPort: parseInt(reverbPort.value),
         wssPort: parseInt(reverbPort.value),
-        forceTLS: false,
+        forceTLS: reverbScheme.value === 'https',
         enabledTransports: ['ws', 'wss'],
       });
 
