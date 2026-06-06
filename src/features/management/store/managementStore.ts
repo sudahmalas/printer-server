@@ -57,8 +57,6 @@ export const useManagementStore = defineStore('management', () => {
   watch(mainAppUrl, (val) => localStorage.setItem('main_app_url', val));
   watch(enableOnlineMode, (val) => {
     localStorage.setItem('enable_online', val.toString());
-    if (val) connectEcho();
-    else disconnectEcho();
   });
   watch(reverbHost, (val) => localStorage.setItem('reverb_host', val));
   watch(reverbPort, (val) => localStorage.setItem('reverb_port', val));
@@ -81,6 +79,10 @@ export const useManagementStore = defineStore('management', () => {
 
   function connectEcho() {
     if (!enableOnlineMode.value) return;
+
+    if (echoInstance) {
+      disconnectEcho();
+    }
 
     try {
       window.Pusher = Pusher;
@@ -107,12 +109,12 @@ export const useManagementStore = defineStore('management', () => {
       const channelName = `printer.${machineName.value}`;
       echoInstance.channel(channelName)
         .listen('PrintJobDispatched', async (e: any) => {
-          addLog(`[Job] Menerima print job: ${JSON.stringify(e)}`, 'info');
+          addLog(`[WebSocket] VPS mengirimkan instruksi cetak (Reverb). Payload: ${JSON.stringify(e)}`, 'info');
           try {
             await client.post('/print', e.payload);
-            addLog(`[Job] Sukses mencetak dokumen.`, 'success');
+            addLog(`[WebSocket] Berhasil meneruskan instruksi VPS ke mesin print lokal.`, 'success');
           } catch (err: any) {
-            addLog(`[Job] Gagal proxy print ke printer lokal: ${err.message}`, 'error');
+            addLog(`[WebSocket] Gagal meneruskan instruksi VPS ke mesin print lokal: ${err.message}`, 'error');
           }
         });
     } catch (err: any) {
@@ -122,7 +124,16 @@ export const useManagementStore = defineStore('management', () => {
 
   function disconnectEcho() {
     if (echoInstance) {
-      echoInstance.disconnect();
+      try {
+        const channelName = `printer.${machineName.value}`;
+        echoInstance.leaveChannel(channelName);
+        if (echoInstance.connector && echoInstance.connector.pusher) {
+          echoInstance.connector.pusher.disconnect();
+        }
+        echoInstance.disconnect();
+      } catch (e) {
+        console.error('Error disconnecting echo', e);
+      }
       echoInstance = null;
       isOnlineConnected.value = false;
       addLog('[Reverb] Koneksi WebSocket dimatikan manual.', 'info');
@@ -175,6 +186,14 @@ export const useManagementStore = defineStore('management', () => {
       });
 
       addLog(`[Sync] Sinkronisasi ke server utama berhasil: ${res.data.message}`, 'success');
+      
+      // Update koneksi WebSocket setelah berhasil simpan
+      if (enableOnlineMode.value) {
+        connectEcho();
+      } else {
+        disconnectEcho();
+      }
+
       return { success: true, message: res.data.message };
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message;
@@ -198,6 +217,12 @@ export const useManagementStore = defineStore('management', () => {
       });
 
       addLog(`[System] Service berhasil dihapus dari server utama.`, 'success');
+      
+      // Putuskan koneksi WebSocket jika dihapus dari server
+      disconnectEcho();
+      // Opsional: Matikan toggle online mode secara visual
+      enableOnlineMode.value = false;
+
       return { success: true, message: res.data?.message || 'Berhasil dihapus' };
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message;
