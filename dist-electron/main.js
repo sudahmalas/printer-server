@@ -247,7 +247,7 @@ server.listen(18181, () => {
     console.log('[HTTP] Print Service API running on port 18181');
 });
 // --- Electron App Lifecycle ---
-const iconPath = path.join(__dirname, '../public/favicon.ico');
+const iconPath = path.join(__dirname, '../dist/favicon.ico');
 function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
         width: 800,
@@ -258,7 +258,7 @@ function createWindow() {
             nodeIntegration: true,
             contextIsolation: false,
         },
-        show: false // start hidden, let Vue render first if needed
+        show: false // start hidden
     });
     mainWindow.setMenuBarVisibility(false);
     if (isDev) {
@@ -267,6 +267,9 @@ function createWindow() {
     }
     else {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+        mainWindow.once('ready-to-show', () => {
+            mainWindow?.show();
+        });
     }
     mainWindow.on('close', (event) => {
         event.preventDefault();
@@ -274,7 +277,10 @@ function createWindow() {
     });
 }
 function createTray() {
-    tray = new electron_1.Tray(iconPath);
+    // Gunakan nativeImage untuk memuat icon dari dalam file asar
+    const { nativeImage } = require('electron');
+    const icon = nativeImage.createFromPath(iconPath);
+    tray = new electron_1.Tray(icon);
     const contextMenu = electron_1.Menu.buildFromTemplate([
         { label: 'Show Dashboard', click: () => { mainWindow?.show(); } },
         { type: 'separator' },

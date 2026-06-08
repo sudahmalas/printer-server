@@ -11,6 +11,28 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "build": {
+    "appId": "com.klinikbeta.printerservice",
+    "productName": "Printer Service",
+    "directories": {
+      "output": "release/v${version}"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icons/icon_256x256.png"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
     "axios": "^1.17.0",
