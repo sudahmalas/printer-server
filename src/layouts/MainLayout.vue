@@ -158,9 +158,11 @@ onUnmounted(() => {
 
       <!-- Content viewport -->
       <div class="flex-1 overflow-auto">
-        <router-view v-slot="{ Component }">
+        <router-view v-slot="{ Component, route: currentRoute }">
           <transition name="page" mode="out-in">
-            <component :is="Component" />
+            <div :key="currentRoute.path" class="h-full">
+              <component :is="Component" />
+            </div>
           </transition>
         </router-view>
       </div>

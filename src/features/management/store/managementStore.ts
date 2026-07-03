@@ -22,10 +22,8 @@ export const useManagementStore = defineStore('management', () => {
 
   // Reverb WebSocket variables
   const enableOnlineMode = ref(localStorage.getItem('enable_online') === 'true');
-  const reverbHost = ref(localStorage.getItem('reverb_host') || '127.0.0.1');
-  const reverbPort = ref(localStorage.getItem('reverb_port') || '8080');
-  const reverbAppKey = ref(localStorage.getItem('reverb_app_key') || 'local_key');
-  const reverbScheme = ref(localStorage.getItem('reverb_scheme') || 'http');
+  const apiKey = ref(localStorage.getItem('api_key') || '');
+  const connectedChannel = ref('');
 
   // App States
   const printers = ref<any[]>([]);
@@ -58,10 +56,7 @@ export const useManagementStore = defineStore('management', () => {
   watch(enableOnlineMode, (val) => {
     localStorage.setItem('enable_online', val.toString());
   });
-  watch(reverbHost, (val) => localStorage.setItem('reverb_host', val));
-  watch(reverbPort, (val) => localStorage.setItem('reverb_port', val));
-  watch(reverbAppKey, (val) => localStorage.setItem('reverb_app_key', val));
-  watch(reverbScheme, (val) => localStorage.setItem('reverb_scheme', val));
+  watch(apiKey, (val) => localStorage.setItem('api_key', val));
   watch(mappings, (val) => {
     localStorage.setItem('printer_mappings', JSON.stringify(val));
   }, { deep: true });
@@ -77,22 +72,41 @@ export const useManagementStore = defineStore('management', () => {
     }
   }
 
-  function connectEcho() {
-    if (!enableOnlineMode.value) return;
+  async function connectEcho() {
+    if (!enableOnlineMode.value || !apiKey.value) {
+      if (enableOnlineMode.value && !apiKey.value) {
+        addLog('[Reverb] API Key kosong, tidak bisa terhubung.', 'error');
+      }
+      return;
+    }
 
     if (echoInstance) {
       disconnectEcho();
     }
 
     try {
+      addLog('[Reverb] Mengambil konfigurasi WebSocket dari server utama...', 'info');
+      const res = await axios.post(`${mainAppUrl.value}/api/print-service/connect-info`, {
+        api_key: apiKey.value
+      });
+
+      if (!res.data.success) {
+        addLog(`[Reverb] Gagal mendapatkan config: ${res.data.message}`, 'error');
+        return;
+      }
+
+      const info = res.data.data;
+      connectedChannel.value = info.channel;
+      serviceName.value = info.service_name;
+
       window.Pusher = Pusher;
       echoInstance = new Echo({
         broadcaster: 'reverb',
-        key: reverbAppKey.value,
-        wsHost: reverbHost.value,
-        wsPort: parseInt(reverbPort.value),
-        wssPort: parseInt(reverbPort.value),
-        forceTLS: reverbScheme.value === 'https',
+        key: info.reverb.key,
+        wsHost: info.reverb.host,
+        wsPort: parseInt(info.reverb.port),
+        wssPort: parseInt(info.reverb.port),
+        forceTLS: info.reverb.scheme === 'https',
         enabledTransports: ['ws', 'wss'],
       });
 
@@ -106,8 +120,7 @@ export const useManagementStore = defineStore('management', () => {
         addLog('[Reverb] Koneksi terputus dari Server Reverb', 'error');
       });
 
-      const channelName = `printer.${machineName.value}`;
-      echoInstance.channel(channelName)
+      echoInstance.channel(connectedChannel.value)
         .listen('PrintJobDispatched', async (e: any) => {
           addLog(`[WebSocket] VPS mengirimkan instruksi cetak (Reverb). Payload: ${JSON.stringify(e)}`, 'info');
           try {
@@ -118,15 +131,17 @@ export const useManagementStore = defineStore('management', () => {
           }
         });
     } catch (err: any) {
-      addLog(`[Reverb] Gagal inisialisasi Echo: ${err.message}`, 'error');
+      const msg = err.response?.data?.message || err.message;
+      addLog(`[Reverb] Gagal inisialisasi Echo: ${msg}`, 'error');
     }
   }
 
   function disconnectEcho() {
     if (echoInstance) {
       try {
-        const channelName = `printer.${machineName.value}`;
-        echoInstance.leaveChannel(channelName);
+        if (connectedChannel.value) {
+          echoInstance.leaveChannel(connectedChannel.value);
+        }
         if (echoInstance.connector && echoInstance.connector.pusher) {
           echoInstance.connector.pusher.disconnect();
         }
@@ -144,7 +159,7 @@ export const useManagementStore = defineStore('management', () => {
     try {
       const res = await client.get('/printers');
       if (res.data.success) {
-        printers.value = res.data.data;
+        printers.value = res.data.data || [];
         isServerRunning.value = true;
         addLog(`[System] Berhasil membaca ${printers.value.length} printer di OS Windows`, 'success');
       }
@@ -166,6 +181,7 @@ export const useManagementStore = defineStore('management', () => {
   async function syncToServer() {
     try {
       const payload = {
+        api_key: apiKey.value,
         service_name: serviceName.value,
         machine_name: machineName.value,
         ip_address: localIp.value,
@@ -205,7 +221,7 @@ export const useManagementStore = defineStore('management', () => {
   async function unregisterFromServer() {
     try {
       const payload = {
-        service_name: serviceName.value,
+        api_key: apiKey.value,
         mac_address: macAddress.value
       };
 
@@ -220,7 +236,6 @@ export const useManagementStore = defineStore('management', () => {
       
       // Putuskan koneksi WebSocket jika dihapus dari server
       disconnectEcho();
-      // Opsional: Matikan toggle online mode secara visual
       enableOnlineMode.value = false;
 
       return { success: true, message: res.data?.message || 'Berhasil dihapus' };
@@ -238,9 +253,8 @@ export const useManagementStore = defineStore('management', () => {
     macAddress,
     mainAppUrl,
     enableOnlineMode,
-    reverbHost,
-    reverbPort,
-    reverbAppKey,
+    apiKey,
+    connectedChannel,
     printers,
     mappings,
     logs,

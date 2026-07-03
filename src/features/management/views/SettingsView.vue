@@ -150,19 +150,13 @@ onMounted(async () => {
         <div class="p-6">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
             <div class="space-y-1.5">
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama Ruangan</label>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">API Key Service</label>
               <div class="relative group">
-                <MapPin class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-                <Input v-model="store.serviceName" placeholder="Contoh: Loket Pendaftaran" class="w-full pl-9" />
+                <KeyRound class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                <Input type="password" v-model="store.apiKey" placeholder="Contoh: ps_abcdef123..." class="w-full pl-9" />
               </div>
             </div>
-            <div class="space-y-1.5">
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama PC (Unik)</label>
-              <div class="relative group">
-                <MonitorSmartphone class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-                <Input v-model="store.machineName" placeholder="Contoh: PC-LOKET-01" class="w-full pl-9" />
-              </div>
-            </div>
+
             <div class="space-y-1.5">
               <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">URL Server Aplikasi</label>
               <div class="relative group">
@@ -215,45 +209,7 @@ onMounted(async () => {
         </div>
 
         <div v-if="store.enableOnlineMode" class="p-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full animate-enter">
-            <div class="space-y-1.5">
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reverb Host</label>
-              <div class="relative group">
-                <RadioTower class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors" />
-                <Input v-model="store.reverbHost" placeholder="Contoh: 127.0.0.1" class="w-full pl-9 focus:border-cyan-500 focus:ring-cyan-500/20" />
-              </div>
-            </div>
-            <div class="space-y-1.5">
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reverb Port</label>
-              <div class="relative group">
-                <Plug class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors" />
-                <Input v-model="store.reverbPort" placeholder="Contoh: 8080" class="w-full pl-9 focus:border-cyan-500 focus:ring-cyan-500/20" />
-              </div>
-            </div>
-            <div class="space-y-1.5">
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reverb App Key</label>
-              <div class="relative group">
-                <KeyRound class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors" />
-                <Input v-model="store.reverbAppKey" placeholder="Contoh: local_key" class="w-full pl-9 focus:border-cyan-500 focus:ring-cyan-500/20" />
-              </div>
-            </div>
-            <div class="space-y-1.5">
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Protokol (TLS)</label>
-              <div class="relative group">
-                <Lock class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors" />
-                <select v-model="store.reverbScheme" class="w-full pl-9 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all appearance-none cursor-pointer">
-                  <option value="http">HTTP (ws://)</option>
-                  <option value="https">HTTPS / TLS (wss://)</option>
-                </select>
-                <!-- Custom chevron -->
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="mt-6 flex justify-end">
+          <div class="mt-2 flex justify-start">
             <Button @click="testConnection" variant="outline" class="text-xs px-4 py-1.5 border-cyan-200 text-cyan-700 hover:bg-cyan-100 font-semibold rounded-lg flex items-center gap-2 transition-colors">
               <RadioTower class="w-3.5 h-3.5" />
               Tes Ulang Koneksi
