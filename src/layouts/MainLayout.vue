@@ -33,7 +33,11 @@ onMounted(async () => {
   await managementStore.checkServerStatus();
   await managementStore.fetchPrinters();
   
-  if (managementStore.enableOnlineMode) {
+  // Auto-sync ke server setiap kali aplikasi dijalankan
+  if (managementStore.apiKey && managementStore.mainAppUrl) {
+    managementStore.addLog('[System] Menjalankan auto-sync ke Server Utama...', 'info');
+    await managementStore.syncToServer();
+  } else if (managementStore.enableOnlineMode) {
     managementStore.connectEcho();
   }
 
